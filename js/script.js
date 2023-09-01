@@ -1,5 +1,15 @@
 const global = {
-    currentPage: window.location.pathname
+    currentPage: window.location.pathname,
+    search: {
+        term: '',
+        type: '',
+        page: 1,
+        totalPages: 1
+    },
+    api: {
+        token: '36fa2d5581d7f234871e95a33b4114cf',
+        url: 'https://api.themoviedb.org/3/'
+    }
 }
 
 //Fetch popular movies from DB
@@ -212,6 +222,61 @@ function displayBackgroundImage(type, path) {
     }
 }
 
+//Search Movies/Shows
+async function search() {
+    const queryString = window.location.search;
+    const urlParams = new URLSearchParams(queryString);
+
+    global.search.type = urlParams.get('type');
+    global.search.term = urlParams.get('search-term');
+
+    if (global.search.term !== '' && global.search.term !== null) {
+        const {results} = await searchAPIData();
+        if (results.length === 0) {
+            showAlert('No results found')
+            return;
+        } else {
+            displaySearchResults(results);
+            document.querySelector('.search-term').value = '';
+        }
+    } else {
+        showAlert('Please enter a search term')
+    }
+}
+
+//Function to desplay serach results
+function displaySearchResults(results) {
+    results.forEach(result => {
+        const div = document.createElement('div');
+        div.classList.add('card');
+        div.innerHTML = `
+        <a href="${global.search.type}-details.html?id=${result.id}">
+          ${
+            result.poster_path
+                ? `<img
+                    src="https://image.tmdb.org/t/p/w500/${result.poster_path}"
+                    class="card-img-top"
+                    alt="${global.search.type === 'movie' ? result.title : result.name}"
+                    />`
+                : `<img
+                    src="../images/no-image.jpg"
+                    class="card-img-top"
+                    alt="${global.search.type === 'movie' ? result.title : result.name}"
+                    />`
+
+          }
+        </a>
+        <div class="card-body">
+          <h5 class="card-title">${global.search.type === 'movie' ? result.title : result.name}</h5>
+          <p class="card-text">
+            <small class="text-muted">Release: ${global.search.type === 'movie' ? result.release_date : result.first_air_date}</small>
+          </p>
+        </div>`
+
+        document.querySelector('#search-results').appendChild(div);
+    });
+}
+
 // Display Slider Movies
 async function displaySlider() {
     const {results} = await fetchAPIData('movie/now_playing');
@@ -226,18 +291,13 @@ async function displaySlider() {
         <h4 class="swiper-rating">
           <i class="fas fa-star text-secondary"></i> ${addCommasToNumber(movie.vote_average)} / 10
         </h4>`
-        
+
         document.querySelector('.swiper-wrapper').appendChild(div);
         initSwiper();
     })
-
-    
-    
-    
 }
 
 function initSwiper() {
-    console.log(true)
     const swiper = new Swiper('.swiper', {
         slidesPerView: 1,
         spaceBetween: 30,
@@ -262,14 +322,31 @@ function initSwiper() {
 }
 
 async function fetchAPIData(endpoint) {
-    const API_KEY = '36fa2d5581d7f234871e95a33b4114cf';
-    const API_URL = 'https://api.themoviedb.org/3/';
+    const API_KEY = global.api.token;
+    const API_URL = global.api.url;
 
     showSpinner();
-    hideSpinner();
-
+    
     const response = await fetch(`${API_URL}${endpoint}?api_key=${API_KEY}&language=en-US`);
     const data = await response.json();
+    hideSpinner();
+   
+
+    return data;
+}
+
+//MAke request to search
+async function searchAPIData(endpoint) {
+    const API_KEY = global.api.token;
+    const API_URL = global.api.url;
+
+    showSpinner();
+   
+    const response = await fetch(`${API_URL}search/${global.search.type}?api_key=${API_KEY}&language=en-US&query=${global.search.term}`);
+    const data = await response.json();
+    
+    hideSpinner();
+    
 
     return data;
 }
@@ -289,8 +366,17 @@ function highlightActiveLink() {
             link.classList.add('active')
         }
     })
+}
 
-        
+//Show Error Alert
+function showAlert(message, className='error') {
+    const alertEl = document.createElement('div');
+    alertEl.classList.add('alert', className);
+    alertEl.appendChild(document.createTextNode(message));
+    document.querySelector('#alert').appendChild(alertEl);
+
+    setTimeout(() => alertEl.remove(), 3000)
+
 }
 
 //Fucntion that add commas to a number
@@ -316,7 +402,7 @@ function init() {
             displayShowDetails();
             break;
         case '/search.html':
-            console.log('Search');
+            search();
             break;
             
     }
